@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import random
+import io
 
 kOneMegabyte        =   1000000
 kTotalUniqueChars   =   37    #there are 37 characters in alphabet plus 0-9 plus carrage return
@@ -31,7 +32,7 @@ class IOTester:
 
     def CompareWholeFile(self):
         global keyboardinputstr
-        self.destBuffer    =   self.myFileH.readall()
+        xFerBytes    =   self.myFileH.readinto(self.destBuffer)
         if (self.sourceBuffer != self.destBuffer):
             print("File Compare Error. Dumping Memory buffer into file 'MemBuffer'")
             keyboardinputstr = 'p'  #pause the test
@@ -39,20 +40,21 @@ class IOTester:
 
     def startNewTest(self):
         print("\nCreating New Test File...")
-        testFileName    =   "testfile.bin"
+        self.testFileName    =   "testfile.bin"
         for j in range(10000):
-            if (os.path.isfile(testFileName) == False):            #is there no file with this name already?
+            if (os.path.isfile(self.testFileName) == False):            #is there no file with this name already?
                 break                                               #yep, break out of loop
             else:
-                testFileName    =   "testfile{0}.bin".format(j+1)   #nope, try next file name
+                self.testFileName    =   "testfile{0}.bin".format(j+1)   #nope, try next file name
         if (j == 9999):
             print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'TestFiles' directory")
             keyboardinputstr[0]    =   "q"     # exit the whole program
             exit(0)
         while True:
             if (CheckForNewKeyboardInput() == True):
+                os.remove(dirPath + "TestFiles/" + self.testFileName)
                 exit(0)
-            self.myFileH = open(testFileName, "wb", buffering=0)   # this is good enough for SMB on MacOS
+            self.myFileH = open(self.testFileName, "wb", buffering=0)   # this is good enough for SMB on MacOS
             if (sys.platform == "darwin"):                      # Disable write caching on Mac/afp
                 myResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
 
@@ -64,8 +66,9 @@ class IOTester:
 
             self.myFileH.close()
             if (True == CheckForNewKeyboardInput()):
+                os.remove(dirPath + "TestFiles/" + self.testFileName)
                 exit(0)
-            self.myFileH = open('testfile.bin', "rb", buffering=0)   # this is good enough for SMB on MacOS
+            self.myFileH = open(self.testFileName, "rb", buffering=0)   # this is good enough for SMB on MacOS
             if (sys.platform == "darwin"):                      # Disable read caching on Mac/afp
                 myResult2    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
 
@@ -120,17 +123,17 @@ kTestFilesFolder    =   "TestFiles"
 
 originalDir         =   os.getcwd()
 if (sys.platform == "darwin"):
+    dirPath = "/Volumes/Public/"
     try:
         os.chdir(r"/Volumes/Public")
     except:
         print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted")
         exit(0)
 elif (sys.platform == "win32"):
-#    os.chdir("\\\\ChrisEX2100\\Public")
     try:
         myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
-        myStr2   =   "\\\\" + myStr + "\\Public"
-        os.chdir(myStr2)
+        dirPath   =   "\\\\" + myStr + "\\Public\\"
+        os.chdir(dirPath)
     except:
         print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
         exit(0)
@@ -148,9 +151,6 @@ kbThread       =  threading.Thread(target=getkeyboardinput_thread)
 kbThread.start()
 
 testStrMultiple     =   random.randrange(1,kOneMegabyte, 1)
-testStrMultiple     =   100
+testStrMultiple     =   1000000
 tester1             =   IOTester(testStrMultiple)
 tester1.startNewTest()
-
-while (keyboardinputstr[0] != "q"):
-    time.sleep(1)
