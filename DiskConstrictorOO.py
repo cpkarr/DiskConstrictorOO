@@ -6,7 +6,12 @@ import sys
 import threading
 import time
 import random
-import io
+
+#---------------------- Runtime Configuaration Variables --------------------
+kDebugLevel         =   0
+kShowXferSpeeds     =   True
+kTestThreadCount    =   2
+#----------------------------------------------------------------------------
 
 kOneMegabyte        =   1000000
 kTotalUniqueChars   =   37    #there are 37 characters in alphabet plus 0-9 plus carrage return
@@ -34,7 +39,8 @@ class IOTester:
         global keyboardinputstr
         xFerBytes    =   self.myFileH.readinto(self.destBuffer)
         if (self.sourceBuffer != self.destBuffer):
-            print("File Compare Error. Dumping Memory buffer into file 'MemBuffer'")
+            print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory")
+
             keyboardinputstr = 'p'  #pause the test
         return
 
@@ -52,7 +58,8 @@ class IOTester:
             exit(0)
         while True:
             if (CheckForNewKeyboardInput() == True):
-                os.remove(dirPath + "TestFiles/" + self.testFileName)
+#                os.remove(os.getcwd() + "/" + self.testFileName)
+                os.remove(os.path.realpath(self.testFileName))
                 exit(0)
             self.myFileH = open(self.testFileName, "wb", buffering=0)   # this is good enough for SMB on MacOS
             if (sys.platform == "darwin"):                      # Disable write caching on Mac/afp
@@ -66,7 +73,7 @@ class IOTester:
 
             self.myFileH.close()
             if (True == CheckForNewKeyboardInput()):
-                os.remove(dirPath + "TestFiles/" + self.testFileName)
+                os.remove(os.path.realpath(self.testFileName))
                 exit(0)
             self.myFileH = open(self.testFileName, "rb", buffering=0)   # this is good enough for SMB on MacOS
             if (sys.platform == "darwin"):                      # Disable read caching on Mac/afp
@@ -86,11 +93,6 @@ if (sys.platform == "darwin"):
     bMacOS       =   True
     import fcntl
 
-#---------------------- Runtime Configuaration Variables --------------------
-kDebugLevel         =   0
-kShowXferSpeeds     =   True
-
-#----------------------------------------------------------------------------
 
 def CheckForNewKeyboardInput():
     global keyboardinputstr
@@ -123,7 +125,6 @@ kTestFilesFolder    =   "TestFiles"
 
 originalDir         =   os.getcwd()
 if (sys.platform == "darwin"):
-    dirPath = "/Volumes/Public/"
     try:
         os.chdir(r"/Volumes/Public")
     except:
@@ -132,8 +133,7 @@ if (sys.platform == "darwin"):
 elif (sys.platform == "win32"):
     try:
         myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
-        dirPath   =   "\\\\" + myStr + "\\Public\\"
-        os.chdir(dirPath)
+        os.chdir("\\\\" + myStr + "\\Public\\")
     except:
         print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
         exit(0)
@@ -147,10 +147,18 @@ os.chdir(kTestFilesFolder)
 
 keyboardinputstr    =   "A"
 print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>p")
-kbThread       =  threading.Thread(target=getkeyboardinput_thread)
+kbThread            =  threading.Thread(target=getkeyboardinput_thread)
 kbThread.start()
 
 testStrMultiple     =   random.randrange(1,kOneMegabyte, 1)
 testStrMultiple     =   1000000
-tester1             =   IOTester(testStrMultiple)
-tester1.startNewTest()
+testInstance   =   IOTester(testStrMultiple)
+testThread     =   threading.Thread(target=testInstance.startNewTest())
+
+#testInstance[10]    =   {0,0,0,0,0,0,0,0,0,0}
+#for i in range(kTestThreadCount):
+#    testInstance[i]   =   IOTester(testStrMultiple)
+#    testThread[i]     =   threading.Thread(target=testInstance[i].startNewTest())
+
+while keyboardinputstr != "q":
+    time.sleep(1)
