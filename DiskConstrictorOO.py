@@ -5,12 +5,13 @@ import timeit
 import sys
 import threading
 import time
+import fcntl
 import random
 
 #---------------------- Runtime Configuaration Variables --------------------
-kDebugLevel         =   0
+kDebugLevel         =   1
 kShowXferSpeeds     =   True
-kTestThreadCount    =   2
+kTestThreadCount    =   3
 #----------------------------------------------------------------------------
 
 kOneMegabyte        =   1000000
@@ -30,6 +31,8 @@ class IOTester:
         self.megsXferred            =   self.TotalBytes / kOneMegabyte
         self.destBuffer             =   bytearray(self.TotalBytes)
         self.instanceNo             =   instanceNumber
+        if kDebugLevel  >   0:
+            print("\nSuccessfully initialized thread {0}".format(instanceNumber))
         return
 
     def WriteTestPattern(self):
@@ -40,7 +43,10 @@ class IOTester:
         global gkeyboardinputstr
         global gOriginalDir
         xFerBytes    =   self.myFileH.readinto(self.destBuffer)
-        if (self.sourceBuffer != self.destBuffer):
+        if xFerBytes != self.TotalBytes:
+            print("Did not get the expected number of bytes")
+            gkeyboardinputstr = 'p'  #pause the test
+        elif (self.sourceBuffer != self.destBuffer):
             print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory")
             try:
                 os.chdir(gOriginalDir)
@@ -54,7 +60,7 @@ class IOTester:
         return
 
     def startNewTest(self):
-        print("\nCreating New Test File...")
+        print("\nCreating New Test File...\n")
         self.testFileName    =   "testfile.bin"
         for j in range(10000):
             if (os.path.isfile(self.testFileName) == False):            #is there no file with this name already?
@@ -65,9 +71,12 @@ class IOTester:
             print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'TestFiles' directory")
             gkeyboardinputstr[0]    =   "q"     # exit the whole program
             exit(0)
+        self.myThread = threading.Thread(target=self.testThread)
+        self.myThread.start()
+
+    def testThread(self):
         while True:
             if (CheckForNewKeyboardInput() == True):
-#                os.remove(os.getcwd() + "/" + self.testFileName)
                 os.remove(os.path.realpath(self.testFileName))
                 exit(0)
             self.myFileH = open(self.testFileName, "wb", buffering=0)   # this is good enough for SMB on MacOS
@@ -79,8 +88,8 @@ class IOTester:
             if (kShowXferSpeeds):
                 print("Write Elapsed Time:", totalTime)
                 print("Write Speed", self.megsXferred / totalTime, "MB per second")
-
             self.myFileH.close()
+
             if (True == CheckForNewKeyboardInput()):
                 os.remove(os.path.realpath(self.testFileName))
                 exit(0)
@@ -93,14 +102,8 @@ class IOTester:
             if (kShowXferSpeeds):
                 print("Read Elapsed Time:", totalTime)
                 print("Read Speed", self.megsXferred / totalTime, "MB per second")
-
             self.myFileH.close()
-
         return
-
-if (sys.platform == "darwin"):
-    bMacOS       =   True
-    import fcntl
 
 
 def CheckForNewKeyboardInput():
@@ -124,6 +127,7 @@ def getkeyboardinput_thread():
         gkeyboardinputstr             =   input("")  # silently wait for user keyboard input
         if (gkeyboardinputstr == "q"):   # if the user wants to quit, we need to kill this thread
             break
+    return
 
 def setTestWorkingDirectory():
     if (sys.platform == "darwin"):
@@ -144,7 +148,7 @@ def setTestWorkingDirectory():
         return (1)     # don't support other platforms like Linux yet
     return (0)
 
-print("\nPython I/O Tester v. 1.0 by Chris Karr")
+print("\nPython I/O Tester v. 0.1 by Chris Karr")
 if (kDebugLevel > 0):
     print("\nThe current platform is: ", sys.platform)
 
@@ -165,16 +169,13 @@ print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume P
 kbThread            =  threading.Thread(target=getkeyboardinput_thread)
 kbThread.start()
 
-testStrMultiple     =   random.randrange(1,kOneMegabyte, 1)
+#testStrMultiple     =   random.randrange(1,kOneMegabyte, 1)
 testStrMultiple     =   1000000
 
-testInstance   =   IOTester(testStrMultiple, 1)
-testThread     =   threading.Thread(target=testInstance.startNewTest())
-
-#testInstance[10]    =   {0,0,0,0,0,0,0,0,0,0}
-#for i in range(kTestThreadCount):
-#    testInstance[i]   =   IOTester(testStrMultiple, i)
-#    testThread[i]     =   threading.Thread(target=testInstance[i].startNewTest())
+for i in range(kTestThreadCount):           # create the tester instances. The instances will spawn their own test threads
+    newTester   =   IOTester(testStrMultiple, i)
+    newTester.startNewTest()
 
 while gkeyboardinputstr != "q":
     time.sleep(1)
+#   pass        #not sure if this takes a lot of CPU...
