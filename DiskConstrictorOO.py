@@ -23,12 +23,13 @@ class IOTester:
     from one up to a maximum of one million
     """
 
-    def __init__(self, multiple):
+    def __init__(self, multiple, instanceNumber):
         self.charStrMultiple        =   multiple
         self.sourceBuffer           =   bytes(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n' * multiple)
         self.TotalBytes             =   kTotalUniqueChars * multiple
         self.megsXferred            =   self.TotalBytes / kOneMegabyte
         self.destBuffer             =   bytearray(self.TotalBytes)
+        self.instanceNo             =   instanceNumber
         return
 
     def WriteTestPattern(self):
@@ -36,12 +37,20 @@ class IOTester:
         return
 
     def CompareWholeFile(self):
-        global keyboardinputstr
+        global gkeyboardinputstr
+        global gOriginalDir
         xFerBytes    =   self.myFileH.readinto(self.destBuffer)
         if (self.sourceBuffer != self.destBuffer):
             print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory")
-
-            keyboardinputstr = 'p'  #pause the test
+            try:
+                os.chdir(gOriginalDir)
+                dumpFile    =   open("MemBuffer{0}.bin".format(self.instanceNo))
+                dumpFile.write(self.destBuffer)
+                dumpFile.close()
+                workingDirError      =   setTestWorkingDirectory()
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
+            gkeyboardinputstr = 'p'  #pause the test
         return
 
     def startNewTest(self):
@@ -54,7 +63,7 @@ class IOTester:
                 self.testFileName    =   "testfile{0}.bin".format(j+1)   #nope, try next file name
         if (j == 9999):
             print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'TestFiles' directory")
-            keyboardinputstr[0]    =   "q"     # exit the whole program
+            gkeyboardinputstr[0]    =   "q"     # exit the whole program
             exit(0)
         while True:
             if (CheckForNewKeyboardInput() == True):
@@ -95,14 +104,14 @@ if (sys.platform == "darwin"):
 
 
 def CheckForNewKeyboardInput():
-    global keyboardinputstr
-    if (keyboardinputstr == "q"):
+    global gkeyboardinputstr
+    if (gkeyboardinputstr == "q"):
         print("\nExiting program")
         return True
-    elif (keyboardinputstr == "p"):
+    elif (gkeyboardinputstr == "p"):
         print("\nProgram Paused\nPress 'r' & <Return> to resume or 'q' & <Return> to quit")
-        while (keyboardinputstr != "r"):
-            if (keyboardinputstr == "q"):   # still allow user to quit from paused state
+        while (gkeyboardinputstr != "r"):
+            if (gkeyboardinputstr == "q"):   # still allow user to quit from paused state
                 print("\nExiting program")
                 return True
             time.sleep(1)   # slow down this loop so we don't consume all the CPU
@@ -111,54 +120,61 @@ def CheckForNewKeyboardInput():
 
 def getkeyboardinput_thread():
     while True:
-        global keyboardinputstr
-        keyboardinputstr             =   input("")  # silently wait for user keyboard input
-        if (keyboardinputstr == "q"):   # if the user wants to quit, we need to kill this thread
+        global gkeyboardinputstr
+        gkeyboardinputstr             =   input("")  # silently wait for user keyboard input
+        if (gkeyboardinputstr == "q"):   # if the user wants to quit, we need to kill this thread
             break
 
+def setTestWorkingDirectory():
+    if (sys.platform == "darwin"):
+        try:
+            os.chdir(r"/Volumes/Public")
+        except:
+            print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted")
+            return(1)
+    elif (sys.platform == "win32"):
+        try:
+            myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
+            os.chdir("\\\\" + myStr + "\\Public\\")
+        except:
+            print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
+            return(1)
+    else:
+        print("Sorry, this script does not yet support any platform other than Mac and Windows")
+        return (1)     # don't support other platforms like Linux yet
+    return (0)
 
 print("\nPython I/O Tester v. 1.0 by Chris Karr")
 if (kDebugLevel > 0):
     print("\nThe current platform is: ", sys.platform)
 
-kTestFilesFolder    =   "TestFiles"
+gTestFilesFolder    =   "TestFiles"
 
-originalDir         =   os.getcwd()
-if (sys.platform == "darwin"):
-    try:
-        os.chdir(r"/Volumes/Public")
-    except:
-        print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted")
-        exit(0)
-elif (sys.platform == "win32"):
-    try:
-        myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
-        os.chdir("\\\\" + myStr + "\\Public\\")
-    except:
-        print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
-        exit(0)
-else:
-    print("Sorry, this script does not yet support any platform other than Mac and Windows")
-    exit(0)     # don't support other platforms like Linux yet
+gOriginalDir         =   os.getcwd()
+workingDirError      =   setTestWorkingDirectory()
+if workingDirError:
+    print("\nFatal Error: Unable to change to target test file directory.")
+    exit(1)
 
-if (os.path.exists(kTestFilesFolder) == False):
-    os.mkdir(kTestFilesFolder)
-os.chdir(kTestFilesFolder)
+if (os.path.exists(gTestFilesFolder) == False):
+    os.mkdir(gTestFilesFolder)
+os.chdir(gTestFilesFolder)
 
-keyboardinputstr    =   "A"
+gkeyboardinputstr    =   "A"
 print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>p")
 kbThread            =  threading.Thread(target=getkeyboardinput_thread)
 kbThread.start()
 
 testStrMultiple     =   random.randrange(1,kOneMegabyte, 1)
 testStrMultiple     =   1000000
-testInstance   =   IOTester(testStrMultiple)
+
+testInstance   =   IOTester(testStrMultiple, 1)
 testThread     =   threading.Thread(target=testInstance.startNewTest())
 
 #testInstance[10]    =   {0,0,0,0,0,0,0,0,0,0}
 #for i in range(kTestThreadCount):
-#    testInstance[i]   =   IOTester(testStrMultiple)
+#    testInstance[i]   =   IOTester(testStrMultiple, i)
 #    testThread[i]     =   threading.Thread(target=testInstance[i].startNewTest())
 
-while keyboardinputstr != "q":
+while gkeyboardinputstr != "q":
     time.sleep(1)
