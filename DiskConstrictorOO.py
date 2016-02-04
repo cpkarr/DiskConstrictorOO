@@ -1,5 +1,10 @@
 # File: TestProject.py
-
+""" This script will allow an unlimited number of write/read/compare threads to a network volume.
+The file size will vary from 37 bytes to 37 million bytes. If you only run one thread, you will always
+get the largest possible size (37 million). If you only run two threads, you will always get the largest
+and smallest possible sizes (37 bytes). More than three threads will generate a random file size between
+37 and 37 millon, exclusive.
+"""
 import os
 import timeit
 import sys
@@ -32,7 +37,7 @@ class IOTester:
         elif (instanceNumber == 1):
             self.charStrMultiple    =   1
         else:
-            self.charStrMultiple    =   random.randrange(1,gOneMegabyte, 1)
+            self.charStrMultiple    =   random.randrange(2,gOneMegabyte, 1) # pick a number between 1 and 1 million only
         self.sourceBuffer           =   bytes(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n' * self.charStrMultiple)
         self.TotalBytes             =   gTotalUniqueChars * self.charStrMultiple
         self.megsXferred            =   self.TotalBytes / gOneMegabyte
