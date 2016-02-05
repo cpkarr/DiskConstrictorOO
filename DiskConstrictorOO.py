@@ -121,18 +121,6 @@ class IOTester:
             if CheckForNewKeyboardInput():
                 break
 
-            self.myFileH.close()
-            self.myFileH    =   open(self.testFileName, "wb", buffering=0)
-            while self.myFileH.closed:
-                print("File open error for file:", self.testFileName,". Retrying...")
-                time.sleep(.5)
-                self.myFileH    =   open(self.testFileName, "wb", buffering=0)
-
-            self.myFileH.seek(0, io.SEEK_SET)
-            if sys.platform == "darwin":                      # Disable caching on Mac/afp
-                # noinspection PyUnusedLocal
-                ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
-
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(1)
@@ -145,18 +133,7 @@ class IOTester:
             if CheckForNewKeyboardInput():
                 break
 
-            self.myFileH.close()
-            self.myFileH    =   open(self.testFileName, "rb", buffering=0)
-            while self.myFileH.closed:
-                print("File open error for file:", self.testFileName,". Retrying...")
-                time.sleep(.5)
-                self.myFileH    =   open(self.testFileName, "rb", buffering=0)
-
             self.myFileH.seek(0, io.SEEK_SET)
-            if sys.platform == "darwin":                      # Disable caching on Mac/afp
-                # noinspection PyUnusedLocal
-                ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
-
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
                 totalTime   =   t.timeit(1)
