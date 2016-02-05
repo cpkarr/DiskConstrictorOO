@@ -19,7 +19,7 @@ if sys.platform == "darwin":
 
 #---------------------- Runtime Configuration Variables --------------------
 gDebugLevel         =   0
-gShowXferSpeeds     =   False
+gShowXferSpeeds     =   True
 gMaxFiles           =   10000
 #----------------------------------------------------------------------------
 
@@ -121,6 +121,13 @@ class IOTester:
             if CheckForNewKeyboardInput():
                 break
 
+            self.myFileH.close()
+            self.myFileH    =   open(self.testFileName, "wb", buffering=0)
+            self.myFileH.seek(0, io.SEEK_SET)
+            if sys.platform == "darwin":                      # Disable caching on Mac/afp
+                # noinspection PyUnusedLocal
+                ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
+
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(1)
@@ -133,7 +140,12 @@ class IOTester:
             if CheckForNewKeyboardInput():
                 break
 
+            self.myFileH.close()
+            self.myFileH    =   open(self.testFileName, "rb+", buffering=0)
             self.myFileH.seek(0, io.SEEK_SET)
+            if sys.platform == "darwin":                      # Disable caching on Mac/afp
+                # noinspection PyUnusedLocal
+                ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
 
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
@@ -203,8 +215,12 @@ print("\nPython I/O Tester v. 0.9 by Chris Karr")
 if gDebugLevel > 0:
     print("\nThe current platform is: ", sys.platform)
 
-gOriginalDir         =   os.getcwd() + "/"
-print("Original Dir:", gOriginalDir)
+if sys.platform == "darwin":
+    gOriginalDir         =   os.getcwd() + "/"
+else:
+    gOriginalDir        =   os.getcwd() + "\\"
+if gDebugLevel > 0:
+    print("Original Dir:", gOriginalDir)
 workingDirError      =   setTestWorkingDirectory()
 if workingDirError:
     print("\nFatal Error: Unable to change to target test file directory.")
