@@ -27,11 +27,11 @@ gOneMegabyte        =   1000000
 gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
 gTotalUniqueChars   =   37    #there are 37q characters in alphabet + 0-9 + carriage return
 
-
 # noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
-    """ A single instance of a WRC tester
-    Uses a randomly generated multiplier which is the number of times to repeat a 37 unique character pattern
+    """ A single instance of a WRC tester. The first two instances use max and min values, respectively.
+    Third and later instances use a randomly generated multiplier which is the number of times to repeat
+    a 37 byte, unique-character pattern that is readable in a text editor for easy error identification
     """
     def __init__(self, instanceNumber):
         global gOneMegabyte
@@ -147,7 +147,6 @@ class IOTester:
         os.remove(os.path.realpath(self.testFileName))
         return
 
-
 def CheckForNewKeyboardInput():
     global gkeyboardinputstr
     if gkeyboardinputstr == "q":
@@ -171,7 +170,7 @@ def getkeyboardinput_thread():
             print("\nResuming tests")
     return
 
-def setTestWorkingDirectory():
+def setTestWorkingDirectory():  #need to return actual error in future version
     if sys.platform == "darwin":
         try:
             os.chdir(r"/Volumes/Public")
@@ -180,7 +179,7 @@ def setTestWorkingDirectory():
             return 1
     elif sys.platform == "win32":
         try:
-            myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
+            myStr    =   input("Please <enter> the IP address of the Public share: ")
             os.chdir("\\\\" + myStr + "\\Public\\")
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
@@ -198,43 +197,48 @@ def setTestWorkingDirectory():
         return 1  # don't support other platforms like Linux yet
     return 0
 
-print("\nPython I/O Tester v. 0.9 by Chris Karr")
-if gDebugLevel > 0:
-    print("\nThe current platform is: ", sys.platform)
+def main():
+    print("\nPython I/O Tester v. 0.9 by Chris Karr")
+    if gDebugLevel > 0:
+        print("\nThe current platform is: ", sys.platform)
 
-if sys.platform == "darwin":
-    gOriginalDir         =   os.getcwd() + "/"
-else:
-    gOriginalDir        =   os.getcwd() + "\\"
-if gDebugLevel > 0:
-    print("Original Dir:", gOriginalDir)
-workingDirError      =   setTestWorkingDirectory()
-if workingDirError:
-    print("\nFatal Error: Unable to change to target test file directory.")
-    exit(1)
+    if sys.platform == "darwin":
+        gOriginalDir   =   os.getcwd() + "/"
+    elif sys.platform == "win32":
+        gOriginalDir   =   os.getcwd() + "\\"
+    else:
+        gOriginalDir   =   os.getcwd() + "\\"
+    if gDebugLevel > 0:
+        print("Original Dir:", gOriginalDir)
+    workingDirError      =   setTestWorkingDirectory()
+    if workingDirError:
+        print("\nFatal Error: Unable to change to target test file directory.")
+        exit(workingDirError)
 
-if not os.path.exists("TestFiles"):
-    os.mkdir("TestFiles")
-os.chdir("TestFiles")
+    if not os.path.exists("TestFiles"):
+        os.mkdir("TestFiles")
+    os.chdir("TestFiles")
 
-gkeyboardinputstr    =   "A"
-print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>p\n")
-testThreadCount     =   eval(input("\nFor best performance, you need about of 65 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
-print("There will be", testThreadCount, "test thread(s) created")
-kbThread            =  threading.Thread(target=getkeyboardinput_thread)
-kbThread.start()
+    gkeyboardinputstr    =   "A"
+    print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>p\n")
+    testThreadCount     =   eval(input("\nFor best performance, you need about of 65 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
+    print("There will be", testThreadCount, "test thread(s) created")
+    kbThread            =  threading.Thread(target=getkeyboardinput_thread)
+    kbThread.start()
 
-newTester   =   []
-gOKToStartThreads   =   False
-for i in range(testThreadCount):           # create the tester instances. The instances will spawn their own test threads
-    newTester.append(IOTester(i))
-    newTester[i].startNewTest()
-# noinspection PyRedeclaration,PyRedeclaration
-gOKToStartThreads   =   True
+    newTester   =   []
+    gOKToStartThreads   =   False
+    for i in range(testThreadCount):           # create the tester instances. The instances will spawn their own test threads
+        newTester.append(IOTester(i))
+        newTester[i].startNewTest()
+    # noinspection PyRedeclaration,PyRedeclaration
+    gOKToStartThreads   =   True
 
-print("\nRunning Test(s). Start time:", time.asctime( time.localtime(time.time()) ))
+    print("\nRunning Test(s). Start time:", time.asctime( time.localtime(time.time()) ))
 
-while gkeyboardinputstr != "q":
-    time.sleep(1)       # Don't consume CPU for main event loop
+    while gkeyboardinputstr != "q":
+        time.sleep(1)       # Don't consume CPU for main event loop
 
-print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
+    print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
+
+main()
