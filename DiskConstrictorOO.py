@@ -18,11 +18,13 @@ if sys.platform == "darwin":
     import fcntl
 
 #---------------------- Runtime Configuration Variables --------------------
-gDebugLevel         =   0
+gDebugLevel         =   0   # Allow for multiple debug levels
 gShowXferSpeeds     =   False
 gMaxFiles           =   10000
-#----------------------------------------------------------------------------
+gOriginalDir        =   " "
+gOKToStartThreads   =   False
 
+#---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000
 gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
 gTotalUniqueChars   =   37    #there are 37q characters in alphabet + 0-9 + carriage return
@@ -51,6 +53,7 @@ class IOTester:
         self.instanceNo             =   instanceNumber
         self.testFileName           =   "testfile1.txt" # always start with this file name
         self.myThread               =   threading.Thread(target=self.testThread)
+        self.myFileH                =   0
 
         if gDebugLevel > 0:
             print("Successfully initialized thread {0}".format(instanceNumber + 1))
@@ -72,6 +75,7 @@ class IOTester:
             gkeyboardinputstr = 'p'  #pause all tests
             print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
             try:
+                print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
                 dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
                 print("Dumping memory to:", dumpFilePath)
                 dumpFile    =   open(dumpFilePath, "wb", buffering=0)
@@ -184,20 +188,31 @@ def setTestWorkingDirectory():  #need to return actual error in future version
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
-    elif sys.platform == "Linux":
+    elif sys.platform == "linux":
         try:
             myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
-            os.chdir("\\\\" + myStr + "\\Public\\")
+            myStr2 = "//" + myStr + "/Public/"
+            print(myStr2)
+            os.chdir(myStr2)
+            #myStr   = "//WDMyCloudEX4100/Public"   #Tried hard coding device name. No workie.
+            #print(myStr)
+            #os.chdir(myStr)
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
     else:
+        print("Current reported platform is:", sys.platform)
         print("Sorry, this script does not yet support any platform other than Mac, Linux and Windows")
         print("The current platform is:", sys.platform)
         return 1  # don't support other platforms like Linux yet
     return 0
 
 def main():
+    global gOKToStartThreads
+    global gkeyboardinputstr
+    global gDebugLevel
+    global gOriginalDir
+
     print("\nPython I/O Tester v. 0.9 by Chris Karr")
     if gDebugLevel > 0:
         print("\nThe current platform is: ", sys.platform)
@@ -227,7 +242,6 @@ def main():
     kbThread.start()
 
     newTester   =   []
-    gOKToStartThreads   =   False
     for i in range(testThreadCount):           # create the tester instances. The instances will spawn their own test threads
         newTester.append(IOTester(i))
         newTester[i].startNewTest()
@@ -236,6 +250,8 @@ def main():
 
     print("\nRunning Test(s). Start time:", time.asctime( time.localtime(time.time()) ))
 
+# this would be a good place to put an animation in the terminal window so
+# that people can see that the program is still alive
     while gkeyboardinputstr != "q":
         time.sleep(1)       # Don't consume CPU for main event loop
 
