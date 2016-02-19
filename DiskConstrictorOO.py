@@ -53,14 +53,10 @@ class IOTester:
         self.instanceNo             =   instanceNumber
         self.testFileName           =   "testfile1.txt" # always start with this file name
         self.myThread               =   threading.Thread(target=self.testThread)
-        self.myFileH                =   0
+        self.threadTerminated       =   False
 
         if gDebugLevel > 0:
             print("Successfully initialized thread {0}".format(instanceNumber + 1))
-        return
-
-    def WriteTestPattern(self):
-        self.myFileH.write(self.sourceBuffer)
         return
 
     def CompareWholeFile(self):
@@ -112,6 +108,10 @@ class IOTester:
                 ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
             self.myThread.start()
 
+    def WriteTestPattern(self):
+        self.myFileH.write(self.sourceBuffer)
+        return
+
     def testThread(self):
         global gOKToStartThreads
         global gDebugLevel
@@ -128,11 +128,15 @@ class IOTester:
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(1)
-                print("Write Speed", self.megsXferred / totalTime, "MB per second")
+                print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
                 if gDebugLevel > 0:
                     print("sourceBuffer from instance ", self.instanceNo, " is: ", len(self.sourceBuffer), " bytes in size")
-                self.myFileH.write(self.sourceBuffer)
+                if sys.platform == "win32": #not sure why, but Windows requires this to be inside a timer function. Probably forces the thread to acquire a lock, but not sure.
+                    t           =   timeit.Timer(self.WriteTestPattern)
+                    totalTime   =   t.timeit(1)
+                else:
+                    self.myFileH.write(self.sourceBuffer)
 
             if CheckForNewKeyboardInput():
                 break
@@ -141,7 +145,7 @@ class IOTester:
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
                 totalTime   =   t.timeit(1)
-                print("Read Speed", self.megsXferred / totalTime, "MB per second")
+                print("Thread", self.instanceNo + 1, " Read  Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
                 self.CompareWholeFile()
 
@@ -149,6 +153,7 @@ class IOTester:
 
         self.myFileH.close()
         os.remove(os.path.realpath(self.testFileName))
+        self.threadTerminated   =   True
         return
 
 def CheckForNewKeyboardInput():
@@ -192,11 +197,11 @@ def setTestWorkingDirectory():  #need to return actual error in future version
         try:
             myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
             myStr2 = "//" + myStr + "/Public/"
+            myCommand = "sudo mount -t cifs " + myStr2 + " /mnt/mountpoint"
             print(myStr2)
-            os.chdir(myStr2)
-            #myStr   = "//WDMyCloudEX4100/Public"   #Tried hard coding device name. No workie.
-            #print(myStr)
-            #os.chdir(myStr)
+            os.system("sudo mkdir /mnt/mountpoint")
+            os.system(myCommand)
+            os.chdir("/mnt/mountpoint")
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
@@ -235,7 +240,7 @@ def main():
     os.chdir("TestFiles")
 
     gkeyboardinputstr    =   "A"
-    print("\nTo Start Press:  <s> <Enter>\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>p\n")
+    print("\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>\n")
     testThreadCount     =   eval(input("\nFor best performance, you need about of 65 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
     print("There will be", testThreadCount, "test thread(s) created")
     kbThread            =  threading.Thread(target=getkeyboardinput_thread)
@@ -255,6 +260,14 @@ def main():
     while gkeyboardinputstr != "q":
         time.sleep(1)       # Don't consume CPU for main event loop
 
+    print("Quitting program. Waiting for threads to finish...\n")
+    for i in range(testThreadCount):    #wait for all the threads to terminate before printing time and exiting
+        while newTester[i].threadTerminated == False:
+            time.sleep(.1)
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
+
+    if sys.platform == "linux":
+        os.system("sudo unmount /mnt/mountpoint")
+        os.system("sudo rm -rf /mnt/mountpoint")
 
 main()
