@@ -27,7 +27,7 @@ gOKToStartThreads   =   False
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000
 gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
-gTotalUniqueChars   =   37    #there are 37q characters in alphabet + 0-9 + carriage return
+gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carriage return = 37
 
 # noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
@@ -127,14 +127,15 @@ class IOTester:
 
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
-                totalTime   =   t.timeit(1)
+                totalTime   =   t.timeit(number=1)
                 print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
                 if gDebugLevel > 0:
                     print("sourceBuffer from instance ", self.instanceNo, " is: ", len(self.sourceBuffer), " bytes in size")
-                if sys.platform == "win32": #not sure why, but Windows requires this to be inside a timer function. Probably forces the thread to acquire a lock, but not sure.
+# Very ugly hack: Not sure why, but Windows requires this to be inside a timer function. Probably forces the thread to acquire a lock, but not sure.
+                if sys.platform == "win32":
                     t           =   timeit.Timer(self.WriteTestPattern)
-                    totalTime   =   t.timeit(1)
+                    totalTime   =   t.timeit(number=1)
                 else:
                     self.myFileH.write(self.sourceBuffer)
 
@@ -144,7 +145,7 @@ class IOTester:
             self.myFileH.seek(0, io.SEEK_SET)
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
-                totalTime   =   t.timeit(1)
+                totalTime   =   t.timeit(number=1)
                 print("Thread", self.instanceNo + 1, " Read  Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
                 self.CompareWholeFile()
@@ -184,24 +185,29 @@ def setTestWorkingDirectory():  #need to return actual error in future version
         try:
             os.chdir(r"/Volumes/Public")
         except:
-            print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted")
+            print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted. You can mount it using whatever protocol you wish")
             return 1
     elif sys.platform == "win32":
         try:
-            myStr    =   input("Please <enter> the IP address of the Public share: ")
+            myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
             os.chdir("\\\\" + myStr + "\\Public\\")
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
-        try:
-            myStr    =   input("Please <enter> the IP address of the currently mounted Public share: ")
+        protocolType    =   input("\nPlease choose your transfer protocol. Press 1<enter> for SMB and 2<enter> for NFS")
+        myStr           =   input("\nPlease <enter> the IP address of the currently mounted Public share: ")
+        if protocolType == 1:
+            myStr2 = "//" + myStr + "/nfs/Public/"
+        else:   #just use NFS for every other possible input
             myStr2 = "//" + myStr + "/Public/"
-            myCommand = "sudo mount -t cifs " + myStr2 + " /mnt/mountpoint"
-            print(myStr2)
-            os.system("sudo mkdir /mnt/mountpoint")
+        try:
+            if not os.path.exists("/mnt/Crusher"):
+                os.system("sudo mkdir /mnt/Crusher")
+            myCommand = "sudo mount " + myStr2 + " /mnt/Crusher"
+            print(myCommand)
             os.system(myCommand)
-            os.chdir("/mnt/mountpoint")
+            os.chdir("/mnt/Crusher")
         except:
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
@@ -226,8 +232,9 @@ def main():
         gOriginalDir   =   os.getcwd() + "/"
     elif sys.platform == "win32":
         gOriginalDir   =   os.getcwd() + "\\"
-    else:
-        gOriginalDir   =   os.getcwd() + "\\"
+    elif sys.platform == "linux":
+        gOriginalDir   =   os.getcwd() + "/"
+
     if gDebugLevel > 0:
         print("Original Dir:", gOriginalDir)
     workingDirError      =   setTestWorkingDirectory()
@@ -241,7 +248,7 @@ def main():
 
     gkeyboardinputstr    =   "A"
     print("\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>\n")
-    testThreadCount     =   eval(input("\nFor best performance, you need about of 65 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
+    testThreadCount     =   eval(input("\nFor best performance, you need about of 111 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
     print("There will be", testThreadCount, "test thread(s) created")
     kbThread            =  threading.Thread(target=getkeyboardinput_thread)
     kbThread.start()
@@ -266,8 +273,7 @@ def main():
             time.sleep(.1)
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
 
-    if sys.platform == "linux":
-        os.system("sudo unmount /mnt/mountpoint")
-        os.system("sudo rm -rf /mnt/mountpoint")
+    #if sys.platform == "linux":
+        #os.system("sudo umount /mnt/Crusher")
 
 main()
