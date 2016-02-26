@@ -64,7 +64,7 @@ class IOTester:
         global gOriginalDir
         xFerBytes    =   self.myFileH.readinto(self.destBuffer)
         if xFerBytes != self.TotalBytes:
-            gkeyboardinputstr = 'p'  #pause all tests
+            gkeyboardinputstr = 'p'  # Pause all tests
             print("Instance ", self.instanceNo, "did not get the expected number of bytes. Pausing all tests.\n")
             print(self.TotalBytes, "bytes expected ", xFerBytes, "bytes received")
         elif self.sourceBuffer != self.destBuffer:
@@ -117,7 +117,7 @@ class IOTester:
         global gDebugLevel
         global gShowXferSpeeds
 
-        while not gOKToStartThreads:   #wait to start testing thread until all test class instances have been initialized
+        while not gOKToStartThreads:   # Wait to start testing thread until all test class instances have been initialized
             time.sleep(.5)
             if gDebugLevel > 0:
                 print("Entering thread loop for instance:", self.instanceNo)
@@ -132,7 +132,7 @@ class IOTester:
             else:
                 if gDebugLevel > 0:
                     print("sourceBuffer from instance ", self.instanceNo, " is: ", len(self.sourceBuffer), " bytes in size")
-# Very ugly hack: Not sure why, but Windows requires this to be inside a timer function. Probably forces the thread to acquire a lock, but not sure.
+# Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash
                 if sys.platform == "win32":
                     t           =   timeit.Timer(self.WriteTestPattern)
                     totalTime   =   t.timeit(number=1)
