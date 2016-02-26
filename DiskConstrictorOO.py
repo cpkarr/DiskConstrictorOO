@@ -59,29 +59,6 @@ class IOTester:
             print("Successfully initialized thread {0}".format(instanceNumber + 1))
         return
 
-    def CompareWholeFile(self):
-        global gkeyboardinputstr
-        global gOriginalDir
-        xFerBytes    =   self.myFileH.readinto(self.destBuffer)
-        if xFerBytes != self.TotalBytes:
-            gkeyboardinputstr = 'p'  # Pause all tests
-            print("Instance ", self.instanceNo, "did not get the expected number of bytes. Pausing all tests.\n")
-            print(self.TotalBytes, "bytes expected ", xFerBytes, "bytes received")
-        elif self.sourceBuffer != self.destBuffer:
-            gkeyboardinputstr = 'p'  #pause all tests
-            print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
-            try:
-                print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
-                dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
-                print("Dumping memory to:", dumpFilePath)
-                dumpFile    =   open(dumpFilePath, "wb", buffering=0)
-                dumpFile.write(self.destBuffer)
-                dumpFile.close()
-                gkeyboardinputstr = "p"
-            except:
-                print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
-        return
-
     def startNewTest(self):
         global gDebugLevel
         global gMaxFiles
@@ -110,6 +87,34 @@ class IOTester:
 
     def WriteTestPattern(self):
         self.myFileH.write(self.sourceBuffer)
+        return
+
+    def CompareWholeFile(self):
+        global gkeyboardinputstr
+        global gOriginalDir
+        try:
+            xFerBytes    =   self.myFileH.readinto(self.destBuffer)
+            if xFerBytes != self.TotalBytes:
+                gkeyboardinputstr = 'p'  # Pause all tests
+                print("Instance ", self.instanceNo, "did not get the expected number of bytes. Pausing all tests.\n")
+                print(self.TotalBytes, "bytes expected ", xFerBytes, "bytes received")
+            elif self.sourceBuffer != self.destBuffer:
+                gkeyboardinputstr = 'p'  #pause all tests
+                print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
+                try:
+                    print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
+                    dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
+                    print("Dumping memory to:", dumpFilePath)
+                    dumpFile    =   open(dumpFilePath, "wb", buffering=0)
+                    dumpFile.write(self.destBuffer)
+                    dumpFile.close()
+                    gkeyboardinputstr = "p"
+                except:
+                    print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
+        except:
+            print("Unknown read error. Pausing tests")
+            gkeyboardinputstr = "p"
+           
         return
 
     def testThread(self):
@@ -195,21 +200,18 @@ def setTestWorkingDirectory():  #need to return actual error in future version
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
-        protocolType    =   input("\nPlease choose your transfer protocol. Press 1<enter> for SMB and 2<enter> for NFS")
-        myStr           =   input("\nPlease <enter> the IP address of the currently mounted Public share: ")
-        if protocolType == 1:
-            myStr2 = "//" + myStr + "/nfs/Public/"
-        else:   #just use NFS for every other possible input
-            myStr2 = "//" + myStr + "/Public/"
+        print("\nTo run this program under Linux, you must make sure to run Python 3.X as root")
+        print("e.g. 'sudo python3.5 DiskConstrictorOO.py'")
+        print("\nBefore you run this script, you must create a local mountpoint at '/mnt/Constrictor'")
+        print("e.g. 'sudo mkdir /mnt/Constrictor'")
+        print("\nNext, you must mount the public share using the desired protocol")
+        print("e.g. for NFS use something like: 'sudo mount 192.168.1.137:/nfs/Public' /mnt/Constrictor")
+        print("e.g. for SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor")
+        print("Now you are ready to run the script as root")
         try:
-            if not os.path.exists("/mnt/Crusher"):
-                os.system("sudo mkdir /mnt/Crusher")
-            myCommand = "sudo mount " + myStr2 + " /mnt/Crusher"
-            print(myCommand)
-            os.system(myCommand)
-            os.chdir("/mnt/Crusher")
+            os.chdir("/mnt/Constrictor")
         except:
-            print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
+            print("Unable to change active directory to /mnt/Constrictor.\nPlease make sure the directory exists and that Python is running as root.")
             return 1
     else:
         print("Current reported platform is:", sys.platform)
