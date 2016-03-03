@@ -27,6 +27,7 @@ gOKToStartThreads   =   False
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000
 gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
+#gMaxXFerSize        =   10000    # max out at a 111 MB
 gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carriage return = 37
 
 # noinspection PyPep8Naming,PyPep8Naming
@@ -112,7 +113,7 @@ class IOTester:
                 except:
                     print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
         except:
-            print("Unknown read error. Pausing tests")
+            print("Pausing tests. Read Error:", sys.exc_info()[0])
             gkeyboardinputstr = "p"
            
         return
@@ -129,25 +130,34 @@ class IOTester:
         while True:
             if CheckForNewKeyboardInput():
                 break
-
+            if gDebugLevel > 0:
+                print("Starting Write...")
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(number=1)
                 print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
-                if gDebugLevel > 0:
+                if gDebugLevel > 1:
                     print("sourceBuffer from instance ", self.instanceNo, " is: ", len(self.sourceBuffer), " bytes in size")
-# Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash
+# Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash. Maybe i/o is not thread safe in Windows?
                 if sys.platform == "win32":
                     t           =   timeit.Timer(self.WriteTestPattern)
                     totalTime   =   t.timeit(number=1)
                 else:
-                    self.myFileH.write(self.sourceBuffer)
+                    try:
+                        self.myFileH.write(self.sourceBuffer)
+                    except:
+                        print("Pausing Tests. Write file failed. Error: ", sys.exc_info()[0])
+                        gkeyboardinputstr = "p"
 
             if CheckForNewKeyboardInput():
                 break
 
+            if gDebugLevel > 0:
+                print("Starting Seek...")
             self.myFileH.seek(0, io.SEEK_SET)
+            if gDebugLevel > 0:
+                print("Starting Read/Compare...")
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
                 totalTime   =   t.timeit(number=1)
@@ -155,6 +165,8 @@ class IOTester:
             else:
                 self.CompareWholeFile()
 
+            if gDebugLevel > 0:
+                print("Starting Seek...")
             self.myFileH.seek(0, io.SEEK_SET)
 
         self.myFileH.close()
@@ -200,7 +212,7 @@ def setTestWorkingDirectory():  #need to return actual error in future version
             print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
-        print("\nTo run this program under Linux, you must make sure to run Python 3.X as root")
+        print("\nTo run this program under Linux, you must make sure to run python as root")
         print("e.g. 'sudo python3.5 DiskConstrictorOO.py'")
         print("\nBefore you run this script, you must create a local mountpoint at '/mnt/Constrictor'")
         print("e.g. 'sudo mkdir /mnt/Constrictor'")
