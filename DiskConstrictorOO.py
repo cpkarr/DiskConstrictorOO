@@ -119,7 +119,6 @@ class IOTester:
                 gkeyboardinputstr = 'p'  #pause all tests
                 print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
                 try:
-                    print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
                     dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
                     print("Dumping memory to:", dumpFilePath)
                     dumpFile    =   open(dumpFilePath, "wb", buffering=0)
@@ -130,6 +129,7 @@ class IOTester:
                     print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
         except:
             print("Pausing tests. Read Error:", sys.exc_info()[0])
+            print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
             gkeyboardinputstr = "p"
            
         return
@@ -216,9 +216,11 @@ def getkeyboardinput_thread():
     return
 
 def setTestWorkingDirectory():  #need to return actual error in future version
+    ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
     if sys.platform == "darwin":
         try:
-            os.chdir(r"/Volumes/Public")
+
+            os.chdir(r"/Volumes/" + ShareName)
         except:
             print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted. You can mount it using whatever protocol you wish")
             return 1
@@ -226,14 +228,14 @@ def setTestWorkingDirectory():  #need to return actual error in future version
         print("\nPlease make sure you have turned OpLocks off on the UUT!!!!!!!!!!!!!!!")
         try:
             myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
-            os.chdir("\\\\" + myStr + "\\Public\\")
+            os.chdir("\\\\" + myStr + "\\" + ShareName + "\\")
         except:
-            print("\nPlease make sure that you have the public share of the test drive (UUT) mounted and that you have entered the correct IP address")
+            print("\nPlease make sure that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
         print("\nBefore you start the tests, you must create a local mountpoint at '/mnt/Constrictor'")
         print("e.g. 'sudo mkdir /mnt/Constrictor'")
-        print("\nNext, you must mount the public share to the local mountpoint using the desired protocol and disable attribute caching for NFS Volumes")
+        print("\nNext, you must mount the test share to the local mountpoint using the desired protocol and disable attribute caching for NFS Volumes")
         print("For NFS use something like: 'sudo mount -o noac 192.168.1.137:/nfs/Public' /mnt/Constrictor")
         print("For SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor")
         try:
@@ -254,7 +256,7 @@ def main():
     global gDebugLevel
     global gOriginalDir
 
-    print("\nPython I/O Tester v. 0.9 by Chris Karr")
+    print("\nPython I/O Tester v. 0.9.1 by Chris Karr")
     if gDebugLevel > 0:
         print("\nThe current platform is: ", sys.platform)
 
