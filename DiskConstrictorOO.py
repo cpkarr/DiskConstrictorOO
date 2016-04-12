@@ -22,8 +22,8 @@ gDebugLevel         =   0   # Allow for multiple debug levels
 gShowXferSpeeds     =   False
 gMaxFiles           =   10000
 gOriginalDir        =   " "
-gOKToStartThreads   =   False
 gInjectError        =   False
+gOKToStartThreads   =   False
 
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000
