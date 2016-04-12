@@ -68,7 +68,7 @@ class IOTester:
         
         if gDebugLevel > 0:
             print("\nCreating New Test File...\n")
-        for j in range(gMaxFiles):
+        for j in range(gMaxFiles):                          #First, get a unique file name
             if os.path.isfile(self.testFileName):            #is there file with this name already?
                 self.testFileName    =   "testfile{0}.txt".format(j+2)   #yes, try next file name
             else:
@@ -82,12 +82,12 @@ class IOTester:
                 print("Found a test file name for Instance:", self.instanceNo, "The name is: ", self.testFileName)
                 print("Thread from instance", self.instanceNo, "starting a new test cycle")
 
-            if sys.platform != "linux":
-                self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # this is good enough for SMB on MacOS
-
-            if sys.platform == "darwin":                      # Disable caching on Mac/afp
-                # noinspection PyUnusedLocal
+            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # create the file so another thread doesn't take our name
+            if sys.platform == "linux":
+                self.myFileH.close()                                                #close it for linux to defeat client side caching in NFS
+            elif sys.platform == "darwin":                      # Disable caching on Mac/afp
                 ignoreResult    =   fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
+
             self.myThread.start()
 
     def WriteTestPattern(self):
@@ -146,12 +146,13 @@ class IOTester:
         while True:
             if CheckForNewKeyboardInput():
                 break
+
             if sys.platform == "linux":
                 self.myFileH    =   open(self.testFileName, mode="wb+", buffering=0)
-            else:
-                self.myFileH.seek(0, io.SEEK_SET)
+
             if gDebugLevel > 0:
                 print("Starting Write...")
+
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(number=1)
@@ -183,10 +184,17 @@ class IOTester:
             else:
                 self.CompareWholeFile()
 
-            if CheckForNewKeyboardInput():  #if true, user wants to quit. If pause, call will block until user quits or presses 'r'
-                break
+            if sys.platform == "linux":
+                self.myFileH.close()
+                os.remove(os.path.realpath(self.testFileName))
+            else:
+                self.myFileH.seek(0, io.SEEK_SET)
+                if CheckForNewKeyboardInput():  #if true, user wants to quit. If pause, call will block until user quits or presses 'r'
+                   break                          #Don't let the user pause after the file is deleted on linux systems
+                                                  #This could cause naming collisions with other clients running this script
 
-        self.myFileH.close()
+        if self.myFileH.closed == False:
+            self.myFileH.close()
         if os.path.exists(os.path.realpath(self.testFileName)):
             os.remove(os.path.realpath(self.testFileName))
         self.threadTerminated   =   True
@@ -219,10 +227,9 @@ def setTestWorkingDirectory():  #need to return actual error in future version
     ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
     if sys.platform == "darwin":
         try:
-
-            os.chdir(r"/Volumes/" + ShareName)
+            os.chdir("/Volumes/" + ShareName)
         except:
-            print("\nPlease make sure that you have only the public share of the test drive (UUT) mounted. You can mount it using whatever protocol you wish")
+            print("\nPlease make sure that you mounted the correct share of the test drive (UUT). You can mount it using whatever protocol you wish")
             return 1
     elif sys.platform == "win32":
         print("\nPlease make sure you have turned OpLocks off on the UUT!!!!!!!!!!!!!!!")
