@@ -28,7 +28,6 @@ gOKToStartThreads   =   False
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000
 gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
-#gMaxXFerSize        =   1000    # max out at a 111 MB
 gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carriage return = 37
 
 # noinspection PyPep8Naming,PyPep8Naming
@@ -82,7 +81,7 @@ class IOTester:
                 print("Found a test file name for Instance:", self.instanceNo, "The name is: ", self.testFileName)
                 print("Thread from instance", self.instanceNo, "starting a new test cycle")
 
-            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # create the file so another thread doesn't take our name
+            self.myFileH = open(self.testFileName, mode="wb+", buffering=-1)   # create the file so another thread doesn't take our name
             if sys.platform == "linux":
                 self.myFileH.close()                                                #close it for linux to defeat client side caching in NFS
             elif sys.platform == "darwin":                      # Disable caching on Mac/afp
@@ -100,15 +99,7 @@ class IOTester:
         global gOriginalDir
         global gInjectError
         try:
-            if sys.platform == "linux": #under Linux we assume we are running NFS. You cannot disable client side caching so we do the open/close/delete sequence to defeat the cache
-                os.utime(self.testFileName)
-                self.myFileH.seek(0, io.SEEK_SET)
-                xFerBytes       =   self.myFileH.readinto(self.destBuffer)
-                self.myFileH.close()
-                os.remove(os.path.realpath(self.testFileName))
-            else:
-                self.myFileH.seek(0, io.SEEK_SET)
-                xFerBytes    =   self.myFileH.readinto(self.destBuffer)
+            xFerBytes    =   self.myFileH.readinto(self.destBuffer)
             if gInjectError:
                 self.destBuffer[15]   =   65;# Put an "A" where the "P" should be in the first line to force a mis-compare error
             if xFerBytes != self.TotalBytes:
@@ -141,28 +132,21 @@ class IOTester:
         global gkeyboardinputstr
 
         while not gOKToStartThreads:   # Wait to start testing thread until all test class instances have been initialized
-            if gDebugLevel > 0:
-                print("Entering thread loop for instance:", self.instanceNo)
+            time.sleep(.5)
         while True:
-            if CheckForNewKeyboardInput():
-                break
 
-            if sys.platform == "linux":
-                self.myFileH    =   open(self.testFileName, mode="wb+", buffering=0)
-
-            if gDebugLevel > 0:
-                print("Starting Write...")
+            if sys.platform == "linux": #if linux we create/open, close and delete for every i/o cycle
+                self.myFileH    =   open(self.testFileName, mode="wb", buffering=0)
 
             if gShowXferSpeeds:
                 t           =   timeit.Timer(self.WriteTestPattern)
                 totalTime   =   t.timeit(number=1)
                 print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
-                if gDebugLevel > 1:
-                    print("sourceBuffer from instance ", self.instanceNo, " is: ", len(self.sourceBuffer), " bytes in size")
 # Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash.
 # Maybe i/o is not thread safe in Windows? Root cause should be investigated and a better solution found.
                 if sys.platform == "win32":
+#                if False:   #disable hack for now
                     t           =   timeit.Timer(self.WriteTestPattern)
                     totalTime   =   t.timeit(number=1)
                 else:
@@ -174,9 +158,14 @@ class IOTester:
 
             if CheckForNewKeyboardInput():
                 break
-            
-            if gDebugLevel > 0:
-                print("Starting Read/Compare...")
+
+            if sys.platform == "linux": #rename the file twice to defeat the NFS cache
+                self.myFileH.close()
+                os.rename(self.myFileH.name, "Temp" + self.myFileH.name)
+                os.rename("Temp" + self.myFileH.name, self.testFileName)
+                self.myFileH = open(self.testFileName, mode="rb", buffering=0)
+
+            self.myFileH.seek(0, io.SEEK_SET)
             if gShowXferSpeeds:
                 t = timeit.Timer(self.CompareWholeFile)
                 totalTime   =   t.timeit(number=1)
@@ -188,7 +177,7 @@ class IOTester:
                 self.myFileH.close()
                 os.remove(os.path.realpath(self.testFileName))
             else:
-                self.myFileH.seek(0, io.SEEK_SET)
+                self.myFileH.seek(0, io.SEEK_SET)   #move file marker back to BOF
                 if CheckForNewKeyboardInput():  #if true, user wants to quit. If pause, call will block until user quits or presses 'r'
                    break                          #Don't let the user pause after the file is deleted on linux systems
                                                   #This could cause naming collisions with other clients running this script
@@ -224,7 +213,8 @@ def getkeyboardinput_thread():
     return
 
 def setTestWorkingDirectory():  #need to return actual error in future version
-    ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
+    if sys.platform != "linux":
+        ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
     if sys.platform == "darwin":
         try:
             os.chdir("/Volumes/" + ShareName)
@@ -240,11 +230,13 @@ def setTestWorkingDirectory():  #need to return actual error in future version
             print("\nPlease make sure that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
-        print("\nBefore you start the tests, you must create a local mountpoint at '/mnt/Constrictor'")
-        print("e.g. 'sudo mkdir /mnt/Constrictor'")
+        print("\nBefore you start the tests, you must create a local mountpoint at '/mnt/Constrictor' ")
+        print("e.g. 'sudo mkdir /mnt/Constrictor' ")
         print("\nNext, you must mount the test share to the local mountpoint using the desired protocol and disable attribute caching for NFS Volumes")
-        print("For NFS use something like: 'sudo mount -o noac 192.168.1.137:/nfs/Public' /mnt/Constrictor")
-        print("For SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor")
+        print("For NFS use something like: 'sudo mount -o noac 192.168.1.137:/nfs/Public /mnt/Constrictor' ")
+        print("For SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor' ")
+        print("\nNext, you must give permission for a user process to write to the Constrictor directory")
+        print("Try something like: 'sudo chmod 777 /mnt/Constrictor' ")
         try:
             os.chdir("/mnt/Constrictor")
         except:
