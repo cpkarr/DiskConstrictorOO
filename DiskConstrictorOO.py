@@ -81,7 +81,7 @@ class IOTester:
                 print("Found a test file name for Instance:", self.instanceNo, "The name is: ", self.testFileName)
                 print("Thread from instance", self.instanceNo, "starting a new test cycle")
 
-            self.myFileH = open(self.testFileName, mode="wb+", buffering=-1)   # create the file so another thread doesn't take our name
+            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # create the file so another thread doesn't take our name
             if sys.platform == "linux":
                 self.myFileH.close()                                                #close it for linux to defeat client side caching in NFS
             elif sys.platform == "darwin":                      # Disable caching on Mac/afp
@@ -98,31 +98,47 @@ class IOTester:
         global gkeyboardinputstr
         global gOriginalDir
         global gInjectError
-        try:
-            xFerBytes    =   self.myFileH.readinto(self.destBuffer)
-            if gInjectError:
-                self.destBuffer[15]   =   65;# Put an "A" where the "P" should be in the first line to force a mis-compare error
-            if xFerBytes != self.TotalBytes:
-                gkeyboardinputstr = 'p'  # Pause all tests
-                print("Instance ", self.instanceNo, "did not get the expected number of bytes. Pausing all tests.\n")
-                print(self.TotalBytes, "bytes expected ", xFerBytes, "bytes received")
-            elif self.sourceBuffer != self.destBuffer:
-                gkeyboardinputstr = 'p'  #pause all tests
+
+        if sys.platform == "win32": #hack for windows read crashing the thread. Not working yet
+            self.myFileH.close()
+            localFile = open(self.testFileName, mode="r")
+            self.destBuffer = localFile.read()
+            localFile.close()
+            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # open it back up again
+            if self.sourceBuffer != bytearray(self.destBuffer, encoding='UTF-8"'):
+                gkeyboardinputstr = 'p'  # pause all tests
                 print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
                 try:
-                    dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
+                    dumpFilePath = gOriginalDir + "MemBufferFor_" + self.testFileName
                     print("Dumping memory to:", dumpFilePath)
-                    dumpFile    =   open(dumpFilePath, "wb", buffering=0)
+                    dumpFile = open(dumpFilePath, "wb", buffering=0)
                     dumpFile.write(self.destBuffer)
                     dumpFile.close()
                     gkeyboardinputstr = "p"
                 except:
                     print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
-        except:
-            print("Pausing tests. Read Error:", sys.exc_info()[0])
-            print("\nTime of Error:", time.asctime( time.localtime(time.time()) ))
-            gkeyboardinputstr = "p"
-           
+            return
+        else:
+            xFerBytes    =   self.myFileH.readinto(self.destBuffer)
+        if gInjectError:
+            self.destBuffer[15]   =   65 # Put an "A" where the "P" should be in the first line to force a mis-compare error
+        if xFerBytes != self.TotalBytes:
+            gkeyboardinputstr = 'p'  # Pause all tests
+            print("Instance ", self.instanceNo, "did not get the expected number of bytes. Pausing all tests.\n")
+            print(self.TotalBytes, "bytes expected ", xFerBytes, "bytes received")
+        elif self.sourceBuffer != self.destBuffer:
+            gkeyboardinputstr = 'p'  #pause all tests
+            print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
+            try:
+                dumpFilePath    =   gOriginalDir + "MemBufferFor_" + self.testFileName
+                print("Dumping memory to:", dumpFilePath)
+                dumpFile    =   open(dumpFilePath, "wb", buffering=0)
+                dumpFile.write(self.destBuffer)
+                dumpFile.close()
+                gkeyboardinputstr = "p"
+            except:
+                print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
+
         return
 
     def testThread(self):
@@ -145,16 +161,20 @@ class IOTester:
             else:
 # Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash.
 # Maybe i/o is not thread safe in Windows? Root cause should be investigated and a better solution found.
-                if sys.platform == "win32":
-#                if False:   #disable hack for now
+#                if sys.platform == "win32":
+                if False:   #disable hack for now
                     t           =   timeit.Timer(self.WriteTestPattern)
                     totalTime   =   t.timeit(number=1)
                 else:
                     try:
                         self.myFileH.write(self.sourceBuffer)
-                    except:
-                        print("Pausing Tests. Write Error: ", sys.exc_info()[0])
-                        gkeyboardinputstr = "p"
+                    except: #try twice for Windows
+                        try:
+                            print("Write Error: ", sys.exc_info()[0], " Will retry")
+                            self.myFileH.write(self.sourceBuffer)
+                        except:
+                            print("Pausing Tests. Write Error: ", sys.exc_info()[0])
+                            gkeyboardinputstr = "p"
 
             if CheckForNewKeyboardInput():
                 break
@@ -215,6 +235,8 @@ def getkeyboardinput_thread():
 def setTestWorkingDirectory():  #need to return actual error in future version
     if sys.platform != "linux":
         ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
+    if ShareName == "":
+        ShareName = "Public"
     if sys.platform == "darwin":
         try:
             os.chdir("/Volumes/" + ShareName)
