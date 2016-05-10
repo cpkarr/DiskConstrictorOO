@@ -99,27 +99,7 @@ class IOTester:
         global gOriginalDir
         global gInjectError
 
-        if sys.platform == "win32": #hack for windows read crashing the thread. Not working yet
-            self.myFileH.close()
-            localFile = open(self.testFileName, mode="r")
-            self.destBuffer = localFile.read()
-            localFile.close()
-            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # open it back up again
-            if self.sourceBuffer != bytearray(self.destBuffer, encoding='UTF-8"'):
-                gkeyboardinputstr = 'p'  # pause all tests
-                print("File Compare Error. Dumping Memory buffer into file 'MemBufferX' in script directory.\nPausing all tests")
-                try:
-                    dumpFilePath = gOriginalDir + "MemBufferFor_" + self.testFileName
-                    print("Dumping memory to:", dumpFilePath)
-                    dumpFile = open(dumpFilePath, "wb", buffering=0)
-                    dumpFile.write(self.destBuffer)
-                    dumpFile.close()
-                    gkeyboardinputstr = "p"
-                except:
-                    print("Unexpected error trying to save memory buffer:", sys.exc_info()[0])
-            return
-        else:
-            xFerBytes    =   self.myFileH.readinto(self.destBuffer)
+        xFerBytes    =   self.myFileH.readinto(self.destBuffer)
         if gInjectError:
             self.destBuffer[15]   =   65 # Put an "A" where the "P" should be in the first line to force a mis-compare error
         if xFerBytes != self.TotalBytes:
@@ -235,8 +215,8 @@ def getkeyboardinput_thread():
 def setTestWorkingDirectory():  #need to return actual error in future version
     if sys.platform != "linux":
         ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
-    if ShareName == "":
-        ShareName = "Public"
+        if ShareName == "":
+            ShareName = "Public"
     if sys.platform == "darwin":
         try:
             os.chdir("/Volumes/" + ShareName)
