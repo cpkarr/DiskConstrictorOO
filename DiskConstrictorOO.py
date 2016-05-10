@@ -139,22 +139,7 @@ class IOTester:
                 totalTime   =   t.timeit(number=1)
                 print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
             else:
-# Ugly hack: Not sure why, but Windows needs this to be inside a timer function or the threads will eventually crash.
-# Maybe i/o is not thread safe in Windows? Root cause should be investigated and a better solution found.
-#                if sys.platform == "win32":
-                if False:   #disable hack for now
-                    t           =   timeit.Timer(self.WriteTestPattern)
-                    totalTime   =   t.timeit(number=1)
-                else:
-                    try:
-                        self.myFileH.write(self.sourceBuffer)
-                    except: #try twice for Windows
-                        try:
-                            print("Write Error: ", sys.exc_info()[0], " Will retry")
-                            self.myFileH.write(self.sourceBuffer)
-                        except:
-                            print("Pausing Tests. Write Error: ", sys.exc_info()[0])
-                            gkeyboardinputstr = "p"
+                self.myFileH.write(self.sourceBuffer)
 
             if CheckForNewKeyboardInput():
                 break
@@ -178,9 +163,9 @@ class IOTester:
                 os.remove(os.path.realpath(self.testFileName))
             else:
                 self.myFileH.seek(0, io.SEEK_SET)   #move file marker back to BOF
-                if CheckForNewKeyboardInput():  #if true, user wants to quit. If pause, call will block until user quits or presses 'r'
-                   break                          #Don't let the user pause after the file is deleted on linux systems
-                                                  #This could cause naming collisions with other clients running this script
+                if CheckForNewKeyboardInput():      #if true, user wants to quit. If pause, call will block until user quits or presses 'r'
+                   break                            #Don't let the user pause after the file is deleted on linux systems
+                                                    #This could cause naming collisions with other clients running this script
 
         if self.myFileH.closed == False:
             self.myFileH.close()
