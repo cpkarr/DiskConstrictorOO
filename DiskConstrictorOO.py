@@ -23,9 +23,10 @@ gInjectError        =   False
 gOKToStartThreads   =   False
 
 #---------------------- These are basically just constants -----------------
-gOneMegabyte        =   1000000
-gMaxXFerSize        =   gOneMegabyte * 3    # max out at a 111 MB
+gOneMegabyte        =   1000000 #there are one million bytes in a true megabyte
 gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carriage return = 37
+g37MegMultiplier    =   3
+gMaxXFerBytes       =   gOneMegabyte * gTotalUniqueChars * g37MegMultiplier    # max out at about 111 MB (Python 3.5 breaks after 128 MB)
 
 # noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
@@ -34,20 +35,8 @@ class IOTester:
     a 37 byte, unique-character pattern that is readable in a text editor for easy error identification
     """
     def __init__(self, instanceNumber):
-        global gOneMegabyte
         global gDebugLevel
-        global gMaxXFerSize
 
-        if instanceNumber == 0:
-            self.charStrMultiple    =   gMaxXFerSize
-        elif instanceNumber == 1:
-            self.charStrMultiple    =   1
-        else:
-            self.charStrMultiple    =   random.randrange(2, gMaxXFerSize, 1) # pick a number between 1 and max size only
-        self.sourceBuffer           =   bytes(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n' * self.charStrMultiple)
-        self.TotalBytes             =   gTotalUniqueChars * self.charStrMultiple
-        self.megsXferred            =   self.TotalBytes / gOneMegabyte
-        self.destBuffer             =   bytearray(self.TotalBytes)
         self.instanceNo             =   instanceNumber
         self.testFileName           =   "testfile1.txt" # always start with this file name
         self.myThread               =   threading.Thread(target=self.testThread)
@@ -65,7 +54,7 @@ class IOTester:
         if gDebugLevel > 0:
             print("\nCreating New Test File...\n")
         for j in range(gMaxFiles):                          #First, get a unique file name
-            if os.path.isfile(self.testFileName):            #is there file with this name already?
+            if (os.path.isfile(self.testFileName)) or (os.path.isfile("Temp" + self.testFileName)):            #is there file or tempfile with this name already?
                 self.testFileName    =   "testfile{0}.txt".format(j+2)   #yes, try next file name
             else:
                 break                                               #no, break out of loop
@@ -82,10 +71,6 @@ class IOTester:
             self.myFileH.close()                                                #close it to defeat client side caching
 
             self.myThread.start()
-
-    def WriteTestPattern(self):
-        self.myFileH.write(self.sourceBuffer)
-        return
 
     def CompareWholeFile(self):
         global gDebugLevel
@@ -119,6 +104,9 @@ class IOTester:
         global gOKToStartThreads
         global gDebugLevel
         global gkeyboardinputstr
+        global g37MegMultiplier
+        global gOneMegabyte
+        global gTotalUniqueChars
 
         while not gOKToStartThreads:   # Wait to start testing thread until all test class instances have been initialized
             time.sleep(.5)
@@ -126,6 +114,11 @@ class IOTester:
         while True:
             if CheckForNewKeyboardInput():
                 break
+            charStrMultiple     = random.randrange(1, g37MegMultiplier * gOneMegabyte + 1, 1)  # pick a number between 1 and max size, inclusive of both
+            self.TotalBytes     = gTotalUniqueChars * charStrMultiple
+            self.sourceBuffer   = bytes(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n' * charStrMultiple)
+            self.destBuffer     = bytearray(self.TotalBytes)  # make a buffer large enough to hold largest possible transfer
+
             self.myFileH    =   open(self.testFileName, mode="wb", buffering=0) #close and open fresh for every i/o cycle
             if sys.platform == "darwin":  # Disable caching on Mac/afp
                 ignoreResult = fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
@@ -135,8 +128,8 @@ class IOTester:
             if CheckForNewKeyboardInput():
                 break
 
-            os.rename(self.myFileH.name, "Temp" + self.myFileH.name)
-            os.rename("Temp" + self.myFileH.name, self.testFileName)
+            os.rename(self.testFileName, "Temp" + self.myFileH.name)
+            os.rename("Temp" + self.testFileName, self.testFileName)
             self.myFileH = open(self.testFileName, mode="rb", buffering=0)
             self.myFileH.seek(0, io.SEEK_SET)
             self.CompareWholeFile()
