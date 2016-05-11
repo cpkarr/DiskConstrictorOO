@@ -4,8 +4,6 @@ The file size will vary from 37 bytes to 111 million bytes. If you only run one 
 get the largest possible size (111 MB). If you only run two threads, you will always get the largest
 and smallest possible sizes (111 MB & 37 bytes). More than three threads will generate a random file size that
 is a multiple of 37 and is between 37 and 111 million, exclusive.
-You can also use this script as a crude benchmark program by testing only a single thread and setting
-the "gShowXferSpeeds" to True
 """
 import os
 import timeit
@@ -19,7 +17,6 @@ if sys.platform == "darwin":
 
 #---------------------- Runtime Configuration Variables --------------------
 gDebugLevel         =   0   # Allow for multiple debug levels
-gShowXferSpeeds     =   False
 gMaxFiles           =   10000
 gOriginalDir        =   " "
 gInjectError        =   False
@@ -121,47 +118,30 @@ class IOTester:
     def testThread(self):
         global gOKToStartThreads
         global gDebugLevel
-        global gShowXferSpeeds
         global gkeyboardinputstr
 
         while not gOKToStartThreads:   # Wait to start testing thread until all test class instances have been initialized
             time.sleep(.5)
-        if sys.platform == "darwin":  # Disable caching on Mac/afp
-            self.myFileH = open(self.testFileName, mode="wb+", buffering=0)  # close and open fresh for every i/o cycle
-            ignoreResult = fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
 
         while True:
-            if sys.platform != "darwin":
-                self.myFileH    =   open(self.testFileName, mode="wb", buffering=0) #close and open fresh for every i/o cycle
-            if gShowXferSpeeds:
-                t           =   timeit.Timer(self.WriteTestPattern)
-                totalTime   =   t.timeit(number=1)
-                print("Thread", self.instanceNo + 1, " Write Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
-            else:
-                self.myFileH.write(self.sourceBuffer)
+            if CheckForNewKeyboardInput():
+                break
+            self.myFileH    =   open(self.testFileName, mode="wb", buffering=0) #close and open fresh for every i/o cycle
+            if sys.platform == "darwin":  # Disable caching on Mac/afp
+                ignoreResult = fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
+            self.myFileH.write(self.sourceBuffer)
 
+            self.myFileH.close()
             if CheckForNewKeyboardInput():
                 break
 
-            if sys.platform != "darwin":     #for Non-MacOS, rename the file twice to defeat any client side caching
-                self.myFileH.close()
-                os.rename(self.myFileH.name, "Temp" + self.myFileH.name)
-                os.rename("Temp" + self.myFileH.name, self.testFileName)
-                self.myFileH = open(self.testFileName, mode="rb", buffering=0)
+            os.rename(self.myFileH.name, "Temp" + self.myFileH.name)
+            os.rename("Temp" + self.myFileH.name, self.testFileName)
+            self.myFileH = open(self.testFileName, mode="rb", buffering=0)
             self.myFileH.seek(0, io.SEEK_SET)
-            if gShowXferSpeeds:
-                t = timeit.Timer(self.CompareWholeFile)
-                totalTime   =   t.timeit(number=1)
-                print("Thread", self.instanceNo + 1, " Read  Speed: {0:0.6f}".format(self.megsXferred / totalTime), "MB per second")
-            else:
-                self.CompareWholeFile()
-            if sys.platform == "darwin":
-                self.myFileH.seek(0, io.SEEK_SET)
-            else:
-                self.myFileH.close()
-
-        if self.myFileH.closed == False:
+            self.CompareWholeFile()
             self.myFileH.close()
+
         if os.path.exists(os.path.realpath(self.testFileName)):
             os.remove(os.path.realpath(self.testFileName))
         self.threadTerminated   =   True
