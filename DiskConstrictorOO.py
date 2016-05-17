@@ -175,7 +175,7 @@ def setTestWorkingDirectory(localShareName):  #need to return actual error in fu
     elif sys.platform == "win32":
         try:
             myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
-            os.chdir("\\\\" + myStr + "\\" + localShareName + "\\")
+            os.chdir("\\\\" + myStr + "\\" + localShareName)
         except:
             print("\nPlease make sure that you have entered the correct IP address")
             return 1
