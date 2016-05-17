@@ -28,6 +28,8 @@ gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carri
 g37MegMultiplier    =   3
 gMaxXFerBytes       =   gOneMegabyte * gTotalUniqueChars * g37MegMultiplier    # max out at about 111 MB (Python 3.5 breaks after 128 MB)
 
+gWindowsVersion     =   0
+
 # noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
     """ A single instance of a WRC tester. The first two instances use max and min values, respectively.
@@ -60,7 +62,7 @@ class IOTester:
                 break                                               #no, break out of loop
         # noinspection PyUnboundLocalVariable
         if j == gMaxFiles - 1:
-            print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'TestFiles' directory")
+            print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'ConstrictorTestFiles' directory")
             gkeyboardinputstr    =   "q"     # exit the whole program
         else:       # we have a valid name
             if gDebugLevel > 0:
@@ -163,21 +165,17 @@ def getkeyboardinput_thread():
             print("\nResuming tests")
     return
 
-def setTestWorkingDirectory():  #need to return actual error in future version
-    if sys.platform != "linux":
-        ShareName   =   input("\nPlease enter the name of the share you wish to test: ")
-        if ShareName == "":
-            ShareName = "Public"
+def setTestWorkingDirectory(localShareName):  #need to return actual error in future version
     if sys.platform == "darwin":
         try:
-            os.chdir("/Volumes/" + ShareName)
+            os.chdir("/Volumes/" + localShareName)
         except:
             print("\nPlease make sure that you mounted the correct share of the test drive (UUT). You can mount it using whatever protocol you wish")
             return 1
     elif sys.platform == "win32":
         try:
             myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
-            os.chdir("\\\\" + myStr + "\\" + ShareName + "\\")
+            os.chdir("\\\\" + myStr + "\\" + localShareName + "\\")
         except:
             print("\nPlease make sure that you have entered the correct IP address")
             return 1
@@ -206,10 +204,14 @@ def main():
     global gkeyboardinputstr
     global gDebugLevel
     global gOriginalDir
+    global gWindowsVersion
 
-    print("\nPython I/O Tester v. 0.9.1 by Chris Karr")
+    print("\nPython I/O Tester v. 0.9.2 by Chris Karr")
     if gDebugLevel > 0:
         print("\nThe current platform is: ", sys.platform)
+        if sys.platform == "win32":
+            gWindowsVersion =   sys.getwindowsversion().major
+            print("The current Windows version is: " + gWindowsVersion)
 
     if sys.platform == "darwin":
         gOriginalDir   =   os.getcwd() + "/"
@@ -220,14 +222,24 @@ def main():
 
     if gDebugLevel > 0:
         print("Original Dir:", gOriginalDir)
-    workingDirError      =   setTestWorkingDirectory()
+
+    if sys.platform != "linux":
+        ShareName   =   input("\nPlease enter the name of the share you wish to test: (Press <Return> for the Public share)")
+        if ShareName == "":
+            ShareName = "Public"
+    workingDirError      =   setTestWorkingDirectory(ShareName)
     if workingDirError:
         print("\nFatal Error: Unable to change to target test file directory.")
         exit(workingDirError)
 
-    if not os.path.exists("TestFiles"):
-        os.mkdir("TestFiles")
-    os.chdir("TestFiles")
+    if not os.path.exists("ConstrictorTestFiles"):
+        os.mkdir("ConstrictorTestFiles")
+    os.chdir("ConstrictorTestFiles")
+
+    TempDir =   str(random.randint(1,999999999))
+    if not os.path.exists(TempDir):
+        os.mkdir(TempDir)
+    os.chdir(TempDir)
 
     gkeyboardinputstr    =   "A"
     print("\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>\n")
@@ -255,5 +267,9 @@ def main():
         while newTester[i].threadTerminated == False:
             time.sleep(.1)
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
+
+    workingDirError      =   setTestWorkingDirectory(ShareName)
+    os.chdir("ConstrictorTestFiles")
+    os.rmdir(TempDir)
 
 main()
