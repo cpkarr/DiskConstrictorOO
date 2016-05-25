@@ -1,9 +1,7 @@
 # File: TestProject.py
 """ This script will allow an unlimited number of write/read/compare threads to a network volume.
-The file size will vary from 37 bytes to 111 million bytes. If you only run one thread, you will always
-get the largest possible size (111 MB). If you only run two threads, you will always get the largest
-and smallest possible sizes (111 MB & 37 bytes). More than three threads will generate a random file size that
-is a multiple of 37 and is between 37 and 111 million, exclusive.
+The file size will vary from 37 bytes to 111 million bytes. For each WRC cycle, it generates a random file size that
+is a multiple of 37 and is between 37 and 111 million bytes in size, inclusive.
 """
 import os
 import timeit
@@ -28,13 +26,10 @@ gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carri
 g37MegMultiplier    =   3
 gMaxXFerBytes       =   gOneMegabyte * gTotalUniqueChars * g37MegMultiplier    # max out at about 111 MB (Python 3.5 breaks after 128 MB)
 
-gWindowsVersion     =   0
-
 # noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
-    """ A single instance of a WRC tester. The first two instances use max and min values, respectively.
-    Third and later instances use a randomly generated multiplier which is the number of times to repeat
-    a 37 byte, unique-character pattern that is readable in a text editor for easy error identification
+    """ A single instance of a WRC tester. It uses a randomly generated multiplier which is the number of times to repeat
+    a 37 byte, unique-character pattern that is readable in a text editor for easy error location detection
     """
     def __init__(self, instanceNumber):
         global gDebugLevel
@@ -56,7 +51,7 @@ class IOTester:
         if gDebugLevel > 0:
             print("\nCreating New Test File...\n")
         for j in range(gMaxFiles):                          #First, get a unique file name
-            if (os.path.isfile(self.testFileName)) or (os.path.isfile("Temp" + self.testFileName)):            #is there file or tempfile with this name already?
+            if os.path.isfile(self.testFileName):            #is there file with this name already?
                 self.testFileName    =   "testfile{0}.txt".format(j+2)   #yes, try next file name
             else:
                 break                                               #no, break out of loop
@@ -71,7 +66,6 @@ class IOTester:
 
             self.myFileH = open(self.testFileName, mode="wb+", buffering=0)   # create the file so another thread doesn't take our name
             self.myFileH.close()                                                #close it to defeat client side caching
-
             self.myThread.start()
 
     def CompareWholeFile(self):
@@ -204,15 +198,14 @@ def main():
     global gkeyboardinputstr
     global gDebugLevel
     global gOriginalDir
-    global gWindowsVersion
 
     print("\nPython I/O Tester v. 0.9.2 by Chris Karr")
-    if gDebugLevel > 0:
-        print("\nThe current platform is: ", sys.platform)
-        if sys.platform == "win32":
-            gWindowsVersion =   sys.getwindowsversion().major
-            print("The current Windows version is: " + gWindowsVersion)
-
+    print("\nThe current platform is: ", sys.platform)
+    if sys.platform == "win32":
+        gWindowsVersion =   sys.getwindowsversion().major
+        if gWindowsVersion < 7:
+            print("Sorry, you must be running Windows 8 or later to run this script")
+            return(0)
     if sys.platform == "darwin":
         gOriginalDir   =   os.getcwd() + "/"
     elif sys.platform == "win32":
