@@ -26,7 +26,6 @@ gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carri
 g37MegMultiplier    =   3
 gMaxXFerBytes       =   gOneMegabyte * gTotalUniqueChars * g37MegMultiplier    # max out at about 111 MB (Python 3.5 breaks after 128 MB)
 
-# noinspection PyPep8Naming,PyPep8Naming
 class IOTester:
     """ A single instance of a WRC tester. It uses a randomly generated multiplier which is the number of times to repeat
     a 37 byte, unique-character pattern that is readable in a text editor for easy error location detection
@@ -55,7 +54,6 @@ class IOTester:
                 self.testFileName    =   "testfile{0}.txt".format(j+2)   #yes, try next file name
             else:
                 break                                               #no, break out of loop
-        # noinspection PyUnboundLocalVariable
         if j == gMaxFiles - 1:
             print("Sorry, exceeded the number of unique file names (10,000)\nExiting program. Try deleting all the test files in the 'ConstrictorTestFiles' directory")
             gkeyboardinputstr    =   "q"     # exit the whole program
@@ -245,7 +243,6 @@ def main():
     for i in range(testThreadCount):           # create the tester instances. The instances will spawn their own test threads
         newTester.append(IOTester(i))
         newTester[i].startNewTest()
-    # noinspection PyRedeclaration,PyRedeclaration
     gOKToStartThreads   =   True
 
     print("\nRunning Test(s).\nStart time:", time.asctime( time.localtime(time.time()) ))
