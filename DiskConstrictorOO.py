@@ -202,8 +202,12 @@ def main():
     if sys.platform == "win32":
         gWindowsVersion =   sys.getwindowsversion().major
         if gWindowsVersion < 7:
-            print("Sorry, you must be running Windows 8 or later to run this script")
-            return(0)
+            gWindowsVersion = sys.getwindowsversion().minor
+            if gWindowsVersion < 3:
+                print("Sorry, you must be running Windows 8.1 or later to run this script")
+                print("Reported Windows Minor Version:", gWindowsVersion)
+                time.sleep(5)
+                return(0)
     if sys.platform == "darwin":
         gOriginalDir   =   os.getcwd() + "/"
     elif sys.platform == "win32":
