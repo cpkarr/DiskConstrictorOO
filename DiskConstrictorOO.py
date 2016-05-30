@@ -102,7 +102,7 @@ class IOTester:
         global gOneMegabyte
         global gTotalUniqueChars
 
-        while not gOKToStartThreads:   # Wait to start testing thread until all test class instances have been initialized
+        while not gOKToStartThreads:   # Wait to start testing thread until all tester class instances have been initialized
             time.sleep(.5)
 
         while True:
@@ -199,7 +199,7 @@ def main():
 
     print("\nPython I/O Tester v. 0.9.2 by Chris Karr")
     print("\nThe current platform is: ", sys.platform)
-    if sys.platform == "win32":
+    if sys.platform == "win32": # if Windows, make sure it's version 8.1 or later
         gWindowsVersion =   sys.getwindowsversion().major
         if gWindowsVersion < 7:
             gWindowsVersion = sys.getwindowsversion().minor
@@ -214,9 +214,10 @@ def main():
         gOriginalDir   =   os.getcwd() + "\\"
     elif sys.platform == "linux":
         gOriginalDir   =   os.getcwd() + "/"
-
-    if gDebugLevel > 0:
-        print("Original Dir:", gOriginalDir)
+    else:
+        print("Sorry, this platform is not currently supported")
+        time.sleep(5)
+        return(0)
 
     if sys.platform != "linux":
         ShareName   =   input("\nPlease enter the name of the share you wish to test: (Press <Return> for the Public share)")
@@ -231,7 +232,7 @@ def main():
         os.mkdir("ConstrictorTestFiles")
     os.chdir("ConstrictorTestFiles")
 
-    TempDir =   str(random.randint(1,999999999))
+    TempDir =   str(random.randint(1,999999999)) #this should avoid accidental directory name collisions, but a 100% deterministic solution would be better
     if not os.path.exists(TempDir):
         os.mkdir(TempDir)
     os.chdir(TempDir)
@@ -254,7 +255,7 @@ def main():
 # this would be a good place to put an animation in the terminal window so
 # that people can see that the program is still alive
     while gkeyboardinputstr != "q":
-        time.sleep(1)       # Don't consume CPU for main event loop
+        time.sleep(1)       # Don't consume CPU in main thread
 
     print("Quitting program. Waiting for threads to finish...\n")
     for i in range(testThreadCount):    #wait for all the threads to terminate before printing time and exiting
