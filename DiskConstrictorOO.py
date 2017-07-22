@@ -4,7 +4,7 @@ The file size will vary from 37 bytes to 111 million bytes. For each WRC cycle, 
 is a multiple of 37 and is between 37 and 111 million bytes in size, inclusive.
 """
 import os
-import timeit
+#import timeit
 import sys
 import threading
 import time
@@ -19,6 +19,7 @@ gMaxFiles           =   10000
 gOriginalDir        =   " "
 gInjectError        =   False
 gOKToStartThreads   =   False
+gkeyboardinputstr   =   "a"
 
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000 #there are one million bytes in a true megabyte
@@ -26,6 +27,8 @@ gTotalUniqueChars   =   37    #there are 26 characters in alphabet + 0-9 + carri
 g37MegMultiplier    =   3
 gMaxXFerBytes       =   gOneMegabyte * gTotalUniqueChars * g37MegMultiplier    # max out at about 111 MB (Python 3.5 breaks after 128 MB)
 
+
+# noinspection PyAttributeOutsideInit
 class IOTester:
     """ A single instance of a WRC tester. It uses a randomly generated multiplier which is the number of times to repeat
     a 37 byte, unique-character pattern that is readable in a text editor for easy error location detection
@@ -115,7 +118,7 @@ class IOTester:
 
             self.myFileH    =   open(self.testFileName, mode="wb", buffering=0) #close and open fresh for every i/o cycle
             if sys.platform == "darwin":  # Disable caching on Mac/afp
-                ignoreResult = fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
+                fcntl.fcntl(self.myFileH, fcntl.F_NOCACHE, 1)
             self.myFileH.write(self.sourceBuffer)
 
             self.myFileH.close()
@@ -177,6 +180,7 @@ def setTestWorkingDirectory(localShareName):  #need to return actual error in fu
         print("\nNext, you must mount the test share to the local mountpoint using the desired protocol and disable attribute caching for NFS Volumes")
         print("For NFS use something like: 'sudo mount -o noac 192.168.1.137:/nfs/Public /mnt/Constrictor' ")
         print("For SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor' ")
+        print("For AFP you can just use network discovery tool to mount using GNOME")
         print("\nNext, you must give permission for a user process to write to the Constrictor directory")
         print("Try something like: 'sudo chmod 777 /mnt/Constrictor' ")
         try:
@@ -207,7 +211,7 @@ def main():
                 print("Sorry, you must be running Windows 8.1 or later to run this script")
                 print("Reported Windows Minor Version:", gWindowsVersion)
                 time.sleep(5)
-                return(0)
+                return 0
     if sys.platform == "darwin":
         gOriginalDir   =   os.getcwd() + "/"
     elif sys.platform == "win32":
@@ -217,9 +221,11 @@ def main():
     else:
         print("Sorry, this platform is not currently supported")
         time.sleep(5)
-        return(0)
+        return 0
 
-    if sys.platform != "linux":
+    if sys.platform == "linux":
+        ShareName   =   "Public"      # just stub this out so the static code analyzer doesn't complain
+    else:
         ShareName   =   input("\nPlease enter the name of the share you wish to test: (Press <Return> for the Public share)")
         if ShareName == "":
             ShareName = "Public"
@@ -237,11 +243,11 @@ def main():
         os.mkdir(TempDir)
     os.chdir(TempDir)
 
-    gkeyboardinputstr    =   "A"
+    gkeyboardinputstr   =   "A"
     print("\nTo Pause Press:  <p> <Enter>\nTo Resume Press: <r> <Enter>\nTo Quit Press:   <q> <Enter>\n")
     testThreadCount     =   eval(input("\nFor best performance, you need an average of about of 111 MB of free memory per thread\nPlease enter the number of test threads you want to use:"))
     print("There will be", testThreadCount, "test thread(s) created")
-    kbThread            =  threading.Thread(target=getkeyboardinput_thread)
+    kbThread            =   threading.Thread(target=getkeyboardinput_thread)
     kbThread.start()
 
     newTester   =   []
@@ -259,11 +265,12 @@ def main():
 
     print("Quitting program. Waiting for threads to finish...\n")
     for i in range(testThreadCount):    #wait for all the threads to terminate before printing time and exiting
-        while newTester[i].threadTerminated == False:
+        while not newTester[i].threadTerminated:
             time.sleep(.1)
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
 
-    workingDirError      =   setTestWorkingDirectory(ShareName)
+    if sys.platform != "linux":
+        setTestWorkingDirectory(ShareName)
     os.chdir("ConstrictorTestFiles")
     os.rmdir(TempDir)
 
