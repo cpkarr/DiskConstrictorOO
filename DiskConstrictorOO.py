@@ -192,8 +192,9 @@ def setTestWorkingDirectory(localShareName):  #need to return actual error in fu
             print("For NFS use something like: 'sudo mount -o noac 192.168.1.101:/nfs/Public /mnt/Constrictor' ")
             print("\nFor SMB use something like: sudo mount -t cifs -o username=chris,passord=mypassword,"
                     "uid=$USER,gid=$USER //192.168.1.101/Public /mnt/Constrictor")
+            print("\nNote: you may also need to mount the same share in the desktop GUI using same info")
             print("\nNext, you must give permission for a user process to write to the Constrictor directory")
-            print("This should work: 'sudo chmod 777 /mnt/Constrictor' ")
+            print("This will work if you have the admin password: 'sudo chmod 777 /mnt/Constrictor' ")
             return 1
     else:
         print("Current reported platform is:", sys.platform)
@@ -282,11 +283,8 @@ def main():
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
 
 #Perform file/folder cleanup...
-    if sys.platform != "linux":
-        os.chdir(gSharePathName)               # change directory back to root of share
-        os.chdir(testFilesFolderName)           # change directory back to our test folder
-    else:
-        os.chdir("..")      # Ubuntu seems to prefer this approach for some reason
-    os.rmdir(TempDir)       # delete the temp folder that held our test files
+    os.chdir(gSharePathName)            # change directory back to root of share
+    os.chdir(testFilesFolderName)       # change directory back to our test folder
+    os.rmdir(TempDir)                   # delete the temp folder that held our test files
 
 main()
