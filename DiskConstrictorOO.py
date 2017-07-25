@@ -276,7 +276,9 @@ def main():
 
     if sys.platform != "linux":
         setTestWorkingDirectory(ShareName)
-    os.chdir("..")
+        os.chdir(testFilesFolderName)
+    else:
+        os.chdir("..")
     os.rmdir(TempDir)
 
 main()
