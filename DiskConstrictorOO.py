@@ -19,6 +19,7 @@ gOriginalDir        =   " "
 gInjectError        =   False
 gOKToStartThreads   =   False
 gkeyboardinputstr   =   "a"
+gSharePathName      =   " "
 
 #---------------------- These are basically just constants -----------------
 gOneMegabyte        =   1000000 #there are one million bytes in a true megabyte
@@ -160,23 +161,28 @@ def getkeyboardinput_thread():
     return
 
 def setTestWorkingDirectory(localShareName):  #need to return actual error in future version
+    global gSharePathName
     if sys.platform == "darwin":        # is it MacOS?
         try:
-            os.chdir("/Volumes/" + localShareName)
+            gSharePathName  =   "/Volumes/" + localShareName
+            os.chdir(gSharePathName)
         except:
             print("\nPlease make sure that you mounted the correct share of the test drive (UUT). You can mount it using whatever protocol you wish")
             return 1
     elif sys.platform == "win32":       # is it Windows?
         try:
-            myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
-            os.chdir("\\\\" + myStr + "\\" + localShareName)
+            myStr   =   input("Please <enter> the name or IP address of the test drive (UUT): ")
+            gSharePathName  =   "\\\\" + myStr + "\\" + localShareName
+            os.chdir(gSharePathName)
         except:
-            print("\nPlease make sure that you have entered the correct IP address")
+            print("\nPlease make sure that you have: ")
+            print("\n 1) Entered the correct IP address")
+            print("\n 2) Mounted and mapped the SMB share you wish to test")
             return 1
     elif sys.platform == "linux":
-        localMountPoint =   "/mnt/Constrictor"
-        if os.path.exists(localMountPoint):
-            os.chdir(localMountPoint)
+        gSharePathName =   "/mnt/Constrictor"
+        if os.path.exists(gSharePathName):
+            os.chdir(gSharePathName)
         else:
             print("Unable to find directory '/mnt/Constrictor'.\nPlease make sure the directory exists.")
             print("\nNote: Before you start the tests, you must create a local mountpoint at '/mnt/Constrictor' ")
@@ -201,6 +207,7 @@ def main():
     global gkeyboardinputstr
     global gDebugLevel
     global gOriginalDir
+    global gSharePathName
 
     print('\nPython Network I/O Integrity Tester v. 0.9.3 by Chris Karr')
     print("\nThe current platform is: ", sys.platform)
@@ -274,11 +281,12 @@ def main():
             time.sleep(.1)
     print("\nEnd time:", time.asctime( time.localtime(time.time()) ))
 
+#Perform file/folder cleanup...
     if sys.platform != "linux":
-        setTestWorkingDirectory(ShareName)
-        os.chdir(testFilesFolderName)
+        os.chdir(gSharePathName)               # change directory back to root of share
+        os.chdir(testFilesFolderName)           # change directory back to our test folder
     else:
-        os.chdir("..")
-    os.rmdir(TempDir)
+        os.chdir("..")      # Ubuntu seems to prefer this approach for some reason
+    os.rmdir(TempDir)       # delete the temp folder that held our test files
 
 main()
