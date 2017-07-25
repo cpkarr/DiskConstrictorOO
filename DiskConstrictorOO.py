@@ -4,7 +4,6 @@ The file size will vary from 37 bytes to 111 million bytes. For each WRC cycle, 
 is a multiple of 37 and is between 37 and 111 million bytes in size, inclusive.
 """
 import os
-#import timeit
 import sys
 import threading
 import time
@@ -161,13 +160,13 @@ def getkeyboardinput_thread():
     return
 
 def setTestWorkingDirectory(localShareName):  #need to return actual error in future version
-    if sys.platform == "darwin":
+    if sys.platform == "darwin":        # is it MacOS?
         try:
             os.chdir("/Volumes/" + localShareName)
         except:
             print("\nPlease make sure that you mounted the correct share of the test drive (UUT). You can mount it using whatever protocol you wish")
             return 1
-    elif sys.platform == "win32":
+    elif sys.platform == "win32":       # is it Windows?
         try:
             myStr    =   input("Please <enter> the IP address of the test drive (UUT): ")
             os.chdir("\\\\" + myStr + "\\" + localShareName)
@@ -175,24 +174,26 @@ def setTestWorkingDirectory(localShareName):  #need to return actual error in fu
             print("\nPlease make sure that you have entered the correct IP address")
             return 1
     elif sys.platform == "linux":
-        print("\nBefore you start the tests, you must create a local mountpoint at '/mnt/Constrictor' ")
-        print("e.g. 'sudo mkdir /mnt/Constrictor' ")
-        print("\nNext, you must mount the test share to the local mountpoint using the desired protocol and disable attribute caching for NFS Volumes")
-        print("For NFS use something like: 'sudo mount -o noac 192.168.1.137:/nfs/Public /mnt/Constrictor' ")
-        print("For SMB use something like: 'sudo mount //192.168.1 137/Public /mnt/Constrictor' ")
-        print("For AFP you can just use network discovery tool to mount using GNOME")
-        print("\nNext, you must give permission for a user process to write to the Constrictor directory")
-        print("Try something like: 'sudo chmod 777 /mnt/Constrictor' ")
-        try:
-            os.chdir("/mnt/Constrictor")
-        except:
-            print("Unable to change active directory to /mnt/Constrictor.\nPlease make sure the directory exists.")
+        localMountPoint =   "/mnt/Constrictor"
+        if os.path.exists(localMountPoint):
+            os.chdir(localMountPoint)
+        else:
+            print("Unable to find directory '/mnt/Constrictor'.\nPlease make sure the directory exists.")
+            print("\nNote: Before you start the tests, you must create a local mountpoint at '/mnt/Constrictor' ")
+            print("e.g. 'sudo mkdir /mnt/Constrictor' ")
+            print("\nNext, you must mount the test share to the local mountpoint as yourself using the desired protocol "
+                  "and disable attribute caching for NFS Volumes")
+            print("For NFS use something like: 'sudo mount -o noac 192.168.1.101:/nfs/Public /mnt/Constrictor' ")
+            print("\nFor SMB use something like: sudo mount -t cifs -o username=chris,passord=mypassword,"
+                    "uid=$USER,gid=$USER //192.168.1.101/Public /mnt/Constrictor")
+            print("\nNext, you must give permission for a user process to write to the Constrictor directory")
+            print("This should work: 'sudo chmod 777 /mnt/Constrictor' ")
             return 1
     else:
         print("Current reported platform is:", sys.platform)
-        print("Sorry, this script does not yet support any platform other than Mac, Linux and Windows")
+        print("Sorry, this script only runs on Mac, Linux and Windows")
         print("The current platform is:", sys.platform)
-        return 1  # don't support other platforms like Linux yet
+        return 1  # don't support other platforms yet
     return 0
 
 def main():
@@ -201,7 +202,7 @@ def main():
     global gDebugLevel
     global gOriginalDir
 
-    print("\nPython I/O Tester v. 0.9.2 by Chris Karr")
+    print('\nPython Network I/O Integrity Tester v. 0.9.3 by Chris Karr')
     print("\nThe current platform is: ", sys.platform)
     if sys.platform == "win32": # if Windows, make sure it's version 8.1 or later
         gWindowsVersion =   sys.getwindowsversion().major
@@ -234,13 +235,17 @@ def main():
         print("\nFatal Error: Unable to change to target test file directory.")
         exit(workingDirError)
 
-    if not os.path.exists("ConstrictorTestFiles"):
-        os.mkdir("ConstrictorTestFiles")
-    os.chdir("ConstrictorTestFiles")
+    testFilesFolderName = "ConstrictorTestFiles"
+    if not os.path.exists(testFilesFolderName):
+        os.mkdir(testFilesFolderName, 0o777)    # setting of permissions doesn't actually work under Ubuntu
+        os.chmod(testFilesFolderName, 0o777)    # so do it manually
+
+    os.chdir(testFilesFolderName)
 
     TempDir =   str(random.randint(1,999999999)) #this should avoid accidental directory name collisions, but a 100% deterministic solution would be better
     if not os.path.exists(TempDir):
-        os.mkdir(TempDir)
+        os.mkdir(TempDir, 0o777)    # setting of permissions doesn't actually work under Ubuntu
+        os.chmod(TempDir, 0o777)    # so do it manually
     os.chdir(TempDir)
 
     gkeyboardinputstr   =   "A"
@@ -258,9 +263,9 @@ def main():
 
     print("\nRunning Test(s).\nStart time:", time.asctime( time.localtime(time.time()) ))
 
-# this would be a good place to put an animation in the terminal window so
-# that people can see that the program is still alive
     while gkeyboardinputstr != "q":
+        # this would be a good place to put an animation in the terminal window so
+        # that people can see that the program is still alive
         time.sleep(1)       # Don't consume CPU in main thread
 
     print("Quitting program. Waiting for threads to finish...\n")
@@ -271,7 +276,7 @@ def main():
 
     if sys.platform != "linux":
         setTestWorkingDirectory(ShareName)
-    os.chdir("ConstrictorTestFiles")
+    os.chdir("..")
     os.rmdir(TempDir)
 
 main()
